@@ -639,52 +639,53 @@ footer a:hover { color: var(--white); }
         <div class="form-row">
           <div class="form-group">
             <label>First Name</label>
-            <input type="text" id="fname" placeholder="Jane">
+            <input type="text" id="fname" name="first_name" placeholder="Jane">
           </div>
           <div class="form-group">
             <label>Last Name</label>
-            <input type="text" id="lname" placeholder="Smith">
+            <input type="text" id="lname" name="last_name" placeholder="Smith">
           </div>
         </div>
 
         <div class="form-group">
           <label>Email Address</label>
-          <input type="email" id="email" placeholder="jane@example.com">
+          <input type="email" id="email" name="email" placeholder="jane@example.com">
         </div>
 
         <div class="form-group">
           <label>Phone Number</label>
-          <input type="tel" id="phone" placeholder="(416) 555-0199">
+          <input type="tel" id="phone" name="phone" placeholder="(416) 555-0199">
         </div>
 
         <div class="form-group">
           <label>Address / Postal Code</label>
-          <input type="text" id="address" placeholder="123 Maple St, Toronto, ON">
+          <input type="text" id="address" name="address" placeholder="123 Maple St, Toronto, ON">
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label>Service Plan</label>
-            <select id="plan">
+            <select id="plan" name="service_plan">
               <option value="">Select a plan…</option>
-              <option value="one-time">One-Time — $20/bin</option>
-              <option value="pro">Pro Monthly — $28/bin/mo</option>
-              <option value="deep">Deep Sanitization — $49/bin</option>
+              <option value="One-Time — $20/bin">One-Time — $20/bin</option>
+              <option value="Pro Monthly — $28/bin/mo">Pro Monthly — $28/bin/mo</option>
+              <option value="Deep Sanitization — $49/bin">Deep Sanitization — $49/bin</option>
             </select>
           </div>
           <div class="form-group">
             <label>Preferred Date</label>
-            <input type="date" id="date">
+            <input type="date" id="date" name="preferred_date">
           </div>
         </div>
 
         <div class="form-group">
           <label>Number of Bins</label>
           <div class="bin-counter">
-            <button class="counter-btn" onclick="changeBins(-1)">−</button>
+            <button type="button" class="counter-btn" onclick="changeBins(-1)">−</button>
             <div class="counter-val" id="binCount">1</div>
-            <button class="counter-btn" onclick="changeBins(1)">+</button>
+            <button type="button" class="counter-btn" onclick="changeBins(1)">+</button>
           </div>
+          <input type="hidden" id="binCountHidden" name="number_of_bins" value="1">
           <div class="estimate-line" id="estimateLine">Estimated: $20</div>
         </div>
 
@@ -692,10 +693,10 @@ footer a:hover { color: var(--white); }
 
         <div class="form-group">
           <label>Special Instructions (optional)</label>
-          <textarea id="notes" placeholder="e.g. gate code, type of bins, extra soiled bins…"></textarea>
+          <textarea id="notes" name="special_instructions" placeholder="e.g. gate code, type of bins, extra soiled bins…"></textarea>
         </div>
 
-        <button class="form-submit" onclick="submitForm()">Request Booking →</button>
+        <button type="button" class="form-submit" onclick="submitForm()">Request Booking →</button>
         <div class="form-note">🔒 Your info is never shared. We hate spam too.</div>
       </div>
 
@@ -791,11 +792,11 @@ footer a:hover { color: var(--white); }
   <div style="display:flex;gap:1.5rem;">
     <a href="#">Privacy</a>
     <a href="#">Terms</a>
-    <a href="mailto:hello@freshbin.ca">hello@freshbin.ca</a>
+    <a href="/cdn-cgi/l/email-protection#6f070a0303002f091d0a1c070d0601410c0e"><span class="__cf_email__" data-cfemail="0d65686161624d6b7f687e656f6463236e6c">[email&#160;protected]</span></a>
   </div>
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── BILLING TOGGLE ──
 let billingMode = 'monthly';
 function setBilling(mode) {
@@ -825,15 +826,16 @@ function changeBins(delta) {
   updateEstimate();
 }
 
-const prices = { 'one-time': 20, 'pro': 28, 'deep': 49 };
-const annualPrices = { 'one-time': 17, 'pro': 24, 'deep': 42 };
+const prices = { 'One-Time — $20/bin': 20, 'Pro Monthly — $28/bin/mo': 28, 'Deep Sanitization — $49/bin': 49 };
+const annualPrices = { 'One-Time — $20/bin': 17, 'Pro Monthly — $28/bin/mo': 24, 'Deep Sanitization — $49/bin': 42 };
 
 function updateEstimate() {
   const plan = document.getElementById('plan').value;
   if (!plan) { document.getElementById('estimateLine').textContent = 'Select a plan above'; return; }
   const p = billingMode === 'annual' ? annualPrices[plan] : prices[plan];
   const total = p * binCount;
-  const suffix = plan === 'pro' ? '/mo' : '';
+  const isMonthly = plan.includes('Monthly');
+  const suffix = isMonthly ? '/mo' : '';
   document.getElementById('estimateLine').textContent = `Estimated: $${total}${suffix}`;
 }
 document.getElementById('plan').addEventListener('change', updateEstimate);
@@ -855,17 +857,54 @@ function toggleFaq(btn) {
   if (!isOpen) item.classList.add('open');
 }
 
-// ── FORM SUBMIT ──
-function submitForm() {
+// ── FORM SUBMIT → FORMSPREE ──
+async function submitForm() {
   const fname = document.getElementById('fname').value.trim();
   const email = document.getElementById('email').value.trim();
-  const plan = document.getElementById('plan').value;
+  const plan  = document.getElementById('plan').value;
   if (!fname || !email || !plan) {
     alert('Please fill in your name, email, and select a plan.');
     return;
   }
-  document.getElementById('formContent').style.display = 'none';
-  document.getElementById('formSuccess').style.display = 'block';
+
+  // sync bin count into hidden field
+  document.getElementById('binCountHidden').value = binCount;
+
+  const submitBtn = document.querySelector('.form-submit');
+  submitBtn.textContent = 'Sending…';
+  submitBtn.disabled = true;
+
+  const data = {
+    first_name:           fname,
+    last_name:            document.getElementById('lname').value.trim(),
+    email:                email,
+    phone:                document.getElementById('phone').value.trim(),
+    address:              document.getElementById('address').value.trim(),
+    service_plan:         plan,
+    preferred_date:       document.getElementById('date').value,
+    number_of_bins:       binCount,
+    special_instructions: document.getElementById('notes').value.trim()
+  };
+
+  try {
+    const res = await fetch('https://formspree.io/f/xpqoojgd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) {
+      document.getElementById('formContent').style.display = 'none';
+      document.getElementById('formSuccess').style.display = 'block';
+    } else {
+      alert('Something went wrong. Please try again or email us directly.');
+      submitBtn.textContent = 'Request Booking →';
+      submitBtn.disabled = false;
+    }
+  } catch {
+    alert('Network error. Please check your connection and try again.');
+    submitBtn.textContent = 'Request Booking →';
+    submitBtn.disabled = false;
+  }
 }
 function resetForm() {
   document.getElementById('formContent').style.display = 'block';
@@ -896,14 +935,4 @@ document.querySelectorAll('.pcard, .addon-card, .faq-item, .perk').forEach(el =>
   el.style.opacity = '0';
   el.style.transform = 'translateY(24px)';
   el.style.transition = 'opacity 0.55s ease, transform 0.55s ease';
-  obs.observe(el);
-});
-
-// Set min date for booking
-const dateInput = document.getElementById('date');
-const today = new Date();
-today.setDate(today.getDate() + 1);
-dateInput.min = today.toISOString().split('T')[0];
-</script>
-</body>
-</html>
+  o
